@@ -96,8 +96,7 @@ namespace NationalParkScraper
 
                         while (startIdx < maxIdx)
                         {
-                            //var requestUrl = $"http://www.recreation.gov/campsiteCalendar.do?page=calendar&contractCode=NRSO&parkId={searchCriteria.ParkId}&calarvdate={searchCriteria.StartDate}";
-                            var requestUrl = $"http://www.reserveamerica.com/camping/san-elijo-sb/r/campgroundDetails.do?contractCode=CA&parkId={searchCriteria.ParkId}&calarvdate={searchCriteria.StartDate}";
+                            var requestUrl = $"http://www.reserveamerica.com/campsiteCalendar.do?page=calendar&contractCode=CA&parkId={searchCriteria.ParkId}&calarvdate={searchCriteria.StartDate}";
                             if (startIdx > 0)
                             {
                                 requestUrl += $"&sitepage=true&startIdx={startIdx}";
@@ -196,40 +195,40 @@ namespace NationalParkScraper
                                                    .Where(d => d.Attributes.Contains("class") && d.Attributes["class"].Value.Contains("siteListLabel"))
                                                    .First();
 
-                                                var siteId = HttpUtility.ParseQueryString(new Uri($"http://www.recreation.gov{reservationUrl}").Query).Get("siteId");
-                                                var siteDetailsUrl = $"http://www.recreation.gov/getKeySiteAttrs.do?siteId={siteId}&isMarinaSlip=false&contractCode=NRSO&parkId={searchCriteria.ParkId}";
+                                                var siteId = HttpUtility.ParseQueryString(new Uri($"http://www.reserveamerica.com{reservationUrl}").Query).Get("siteId");
+                                                var siteDetailsUrl = $"http://www.reserveamerica.com/camping/San_Elijo_Sb/r/campsiteDetails.do?siteId={siteId}&contractCode=CA&parkId={searchCriteria.ParkId}";
                                                 string siteDetailsHtml = null;
                                                 var siteDetailsDocument = webClient.GetPage(siteDetailsUrl, out siteDetailsHtml);
 
-                                                var match = Regex.Match(siteDetailsHtml, @"(Max Vehicle Length:&nbsp;<b>)(\d+)");
-                                                var maxVehicleLength = match.Groups[2].Value;
+                                                //var match = Regex.Match(siteDetailsHtml, @"(Max Vehicle Length:&nbsp;<b>)(\d+)");
+                                                //var maxVehicleLength = match.Groups[2].Value;
                                                
                                                 siteMatches.Add(new SiteMatch() { Campground = campground, Title = title });
 
                                                 // Don't send notification if length isn't long enough but add it to the list so we don't 
                                                 // get the siteDetails again.
-                                                if (int.Parse(maxVehicleLength) >= searchCriteria.MaximumVehicleLength)
-                                                {
-                                                    var subject = $"{campground}-{title}.";
-                                                    var body = $"{campground}-{title}, {maximumContiguous} nights around {searchCriteria.StartDate} with trailer length {maxVehicleLength} http://www.recreation.gov{reservationUrl}#";
-                                                    _log.Debug(body);
+                                                //if (int.Parse(maxVehicleLength) >= searchCriteria.MaximumVehicleLength)
+                                                //{
+                                                var subject = $"{campground}-{title}.";
+                                                var body = $"{campground}-{title}, {maximumContiguous} nights around {searchCriteria.StartDate} http://www.reserveamerica.com{reservationUrl}#";
+                                                _log.Debug(body);
 
-                                                    foreach (var notification in settings.Notifications)
+                                                foreach (var notification in settings.Notifications)
+                                                {
+                                                    if (!string.IsNullOrEmpty(notification.Sms))
                                                     {
-                                                        if (!string.IsNullOrEmpty(notification.Sms))
-                                                        {
-                                                            SendSms(notification.Sms, body);
-                                                        }
-                                                        if (!string.IsNullOrEmpty(notification.Email))
-                                                        {
-                                                            SendEmail(notification.Email, subject, body);
-                                                        }
+                                                        SendSms(notification.Sms, body);
+                                                    }
+                                                    if (!string.IsNullOrEmpty(notification.Email))
+                                                    {
+                                                        SendEmail(notification.Email, subject, body);
                                                     }
                                                 }
-                                                else
-                                                {
-                                                    _log.Debug($"Found {maximumContiguous} nights at {campground}-{title} but trailer length was {maxVehicleLength} < {searchCriteria.MaximumVehicleLength}.");
-                                                }
+                                                //}
+                                                //else
+                                                //{
+                                                //    _log.Debug($"Found {maximumContiguous} nights at {campground}-{title} but trailer length was {maxVehicleLength} < {searchCriteria.MaximumVehicleLength}.");
+                                                //}
                                             }
                                         }
                                     }
