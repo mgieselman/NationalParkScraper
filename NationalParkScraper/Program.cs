@@ -96,7 +96,8 @@ namespace NationalParkScraper
 
                         while (startIdx < maxIdx)
                         {
-                            var requestUrl = $"http://www.recreation.gov/campsiteCalendar.do?page=calendar&contractCode=NRSO&parkId={searchCriteria.ParkId}&calarvdate={searchCriteria.StartDate}";
+                            //var requestUrl = $"http://www.recreation.gov/campsiteCalendar.do?page=calendar&contractCode=NRSO&parkId={searchCriteria.ParkId}&calarvdate={searchCriteria.StartDate}";
+                            var requestUrl = $"http://www.reserveamerica.com/camping/san-elijo-sb/r/campgroundDetails.do?contractCode=CA&parkId={searchCriteria.ParkId}&calarvdate={searchCriteria.StartDate}";
                             if (startIdx > 0)
                             {
                                 requestUrl += $"&sitepage=true&startIdx={startIdx}";
@@ -145,6 +146,7 @@ namespace NationalParkScraper
                                     var title = img.Attributes["title"].Value;
 
                                     if (searchCriteria.Filters == null ||
+                                        searchCriteria.Filters.Count() == 0 ||
                                         searchCriteria.Filters.Any(f => title.Contains(f)))
                                     {
                                         var contiguous = 0;
@@ -187,7 +189,7 @@ namespace NationalParkScraper
                                         if (maximumContiguous >= searchCriteria.StayLength)
                                         {
                                             if (!siteMatches.Any(n => n.Identifier == $"{campground}-{title}")
-                                                && (searchCriteria.Ignores == null || !searchCriteria.Ignores.Any(i => title.StartsWith(i.Site))))
+                                                && (searchCriteria.Ignores == null || searchCriteria.Ignores.Count() == 0 || !searchCriteria.Ignores.Any(i => title.StartsWith(i.Site))))
                                             {
                                                 // Now check and see if equipment fits
                                                 var siteListLabel = campsite.Descendants("div")
