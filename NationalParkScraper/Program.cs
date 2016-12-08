@@ -113,7 +113,11 @@ namespace NationalParkScraper
 
                             if (maxIdx == 1000)
                             {
-                                maxIdx = int.Parse(document.GetElementbyId("resulttotal").InnerText);
+                                var resulttotal = document.DocumentNode
+                                        .Descendants("span")
+                                        .Where(d => d.Id.Contains("resulttotal"))
+                                        .FirstOrDefault();
+                                maxIdx = int.Parse(resulttotal.InnerText);
                             }
 
                             var campground = document.GetElementbyId("cgroundName").InnerText;
