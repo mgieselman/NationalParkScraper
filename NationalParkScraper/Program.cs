@@ -80,11 +80,11 @@ namespace NationalParkScraper
 
             var settings = XML.Deserialize<NationalParkScraperSettings>(File.ReadAllText(settingsPath));
             var siteMatches = new List<SiteMatch>();
-           
+
             while (true)
             {
                 string html = null;
-                
+
                 try
                 {
                     _log.Debug($"Processing {settings.SearchCriterias.Count()} searches.");
@@ -96,7 +96,7 @@ namespace NationalParkScraper
 
                         while (startIdx < maxIdx)
                         {
-                            var requestUrl = $"http://www.reserveamerica.com/campsiteCalendar.do?page=calendar&contractCode=CA&parkId={searchCriteria.ParkId}&calarvdate={searchCriteria.StartDate}";
+                            var requestUrl = $"http://www.reserveamerica.com/campsiteCalendar.do?page=calendar&contractCode=UT&parkId={searchCriteria.ParkId}&calarvdate={searchCriteria.StartDate}";
                             if (startIdx > 0)
                             {
                                 requestUrl += $"&sitepage=true&startIdx={startIdx}";
@@ -108,7 +108,7 @@ namespace NationalParkScraper
                             if (calendarNode == null)
                             {
                                 _log.Debug($"No calendar element for {requestUrl}");
-                                break; 
+                                break;
                             }
 
                             if (maxIdx == 1000)
@@ -138,7 +138,7 @@ namespace NationalParkScraper
                                     {
                                         continue;
                                     }
-                                    
+
                                     var hyperlink = div.Descendants("a").First();
 
                                     var img = hyperlink.Descendants("img").FirstOrDefault();
@@ -200,39 +200,39 @@ namespace NationalParkScraper
                                                    .First();
 
                                                 var siteId = HttpUtility.ParseQueryString(new Uri($"http://www.reserveamerica.com{reservationUrl}").Query).Get("siteId");
-                                                var siteDetailsUrl = $"http://www.reserveamerica.com/camping/San_Elijo_Sb/r/campsiteDetails.do?siteId={siteId}&contractCode=CA&parkId={searchCriteria.ParkId}";
+                                                var siteDetailsUrl = $"http://www.reserveamerica.com/camping/dead_horse_point_state_park/r/campsiteDetails.do?siteId={siteId}&contractCode=UT&parkId={searchCriteria.ParkId}";
                                                 string siteDetailsHtml = null;
                                                 var siteDetailsDocument = webClient.GetPage(siteDetailsUrl, out siteDetailsHtml);
 
-                                                //var match = Regex.Match(siteDetailsHtml, @"(Max Vehicle Length:&nbsp;<b>)(\d+)");
-                                                //var maxVehicleLength = match.Groups[2].Value;
-                                               
+                                                var match = Regex.Match(siteDetailsHtml, @"(Max Vehicle Length:\s*)(\d+)");
+                                                var maxVehicleLength = match.Groups[2].Value;
+
                                                 siteMatches.Add(new SiteMatch() { Campground = campground, Title = title });
 
                                                 // Don't send notification if length isn't long enough but add it to the list so we don't 
                                                 // get the siteDetails again.
-                                                //if (int.Parse(maxVehicleLength) >= searchCriteria.MaximumVehicleLength)
-                                                //{
-                                                var subject = $"{campground}-{title}.";
-                                                var body = $"{campground}-{title}, {maximumContiguous} nights around {searchCriteria.StartDate} http://www.reserveamerica.com{reservationUrl}#";
-                                                _log.Debug(body);
-
-                                                foreach (var notification in settings.Notifications)
+                                                if (int.Parse(maxVehicleLength) >= searchCriteria.MaximumVehicleLength)
                                                 {
-                                                    if (!string.IsNullOrEmpty(notification.Sms))
+                                                    var subject = $"{campground}-{title}.";
+                                                    var body = $"{campground}-{title}, {maximumContiguous} nights around {searchCriteria.StartDate} http://www.reserveamerica.com{reservationUrl}#";
+                                                    _log.Debug(body);
+
+                                                    foreach (var notification in settings.Notifications)
                                                     {
-                                                        SendSms(notification.Sms, body);
-                                                    }
-                                                    if (!string.IsNullOrEmpty(notification.Email))
-                                                    {
-                                                        SendEmail(notification.Email, subject, body);
+                                                        if (!string.IsNullOrEmpty(notification.Sms))
+                                                        {
+                                                            SendSms(notification.Sms, body);
+                                                        }
+                                                        if (!string.IsNullOrEmpty(notification.Email))
+                                                        {
+                                                            SendEmail(notification.Email, subject, body);
+                                                        }
                                                     }
                                                 }
-                                                //}
-                                                //else
-                                                //{
-                                                //    _log.Debug($"Found {maximumContiguous} nights at {campground}-{title} but trailer length was {maxVehicleLength} < {searchCriteria.MaximumVehicleLength}.");
-                                                //}
+                                                else
+                                                {
+                                                    _log.Debug($"Found {maximumContiguous} nights at {campground}-{title} but trailer length was {maxVehicleLength} < {searchCriteria.MaximumVehicleLength}.");
+                                                }
                                             }
                                         }
                                     }
@@ -288,5 +288,5 @@ namespace NationalParkScraper
         }
     }
 
-  
+
 }
