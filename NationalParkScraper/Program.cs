@@ -40,7 +40,7 @@ namespace NationalParkScraper
         public string StartDate { get; set; }
         public int StayLength { get; set; }
         public int MaximumDays { get; set; }
-        public int MaximumVehicleLength { get; set; }
+        public int? MaximumVehicleLength { get; set; }
 
         public List<Ignore> Ignores { get; set; }
         public List<string> Filters { get; set; }
@@ -113,7 +113,11 @@ namespace NationalParkScraper
 
                             if (maxIdx == 1000)
                             {
-                                maxIdx = int.Parse(document.GetElementbyId("resulttotal").InnerText);
+                                var resulttotal = document.DocumentNode
+                                        .Descendants("span")
+                                        .Where(d => d.Id.Contains("resulttotal"))
+                                        .FirstOrDefault();
+                                maxIdx = int.Parse(resulttotal.InnerText);
                             }
 
                             var campground = document.GetElementbyId("cgroundName").InnerText;
@@ -123,6 +127,7 @@ namespace NationalParkScraper
                                 var tableBody = calendarNode.Descendants("tbody").First();
 
                                 var campsites = tableBody.Descendants("tr").ToList();
+
                                 // Remove all <tr class="separator xxxx">
                                 campsites.RemoveAll(c => c.Attributes["class"] != null);
 
@@ -145,6 +150,7 @@ namespace NationalParkScraper
                                     var title = img.Attributes["title"].Value;
 
                                     if (searchCriteria.Filters == null ||
+                                        searchCriteria.Filters.Count == 0 ||
                                         searchCriteria.Filters.Any(f => title.Contains(f)))
                                     {
                                         var contiguous = 0;
@@ -155,7 +161,7 @@ namespace NationalParkScraper
                                         // Now we have a candidate, lets see how many days in a row are available.
                                         foreach (var status in campsite.Descendants("td"))
                                         {
-                                            if (daysCount > searchCriteria.MaximumDays)
+                                            if (daysCount >= searchCriteria.MaximumDays)
                                             {
                                                 break;
                                             }
@@ -179,9 +185,9 @@ namespace NationalParkScraper
                                                 {
                                                     contiguous = 0;
                                                 }
-                                            }
 
-                                            daysCount++;
+                                                daysCount++;
+                                            }
                                         }
 
                                         if (maximumContiguous >= searchCriteria.StayLength)
@@ -199,17 +205,48 @@ namespace NationalParkScraper
                                                 string siteDetailsHtml = null;
                                                 var siteDetailsDocument = webClient.GetPage(siteDetailsUrl, out siteDetailsHtml);
 
-                                                var match = Regex.Match(siteDetailsHtml, @"(Max Vehicle Length:&nbsp;<b>)(\d+)");
-                                                var maxVehicleLength = match.Groups[2].Value;
-                                               
-                                                siteMatches.Add(new SiteMatch() { Campground = campground, Title = title });
-
-                                                // Don't send notification if length isn't long enough but add it to the list so we don't 
-                                                // get the siteDetails again.
-                                                if (int.Parse(maxVehicleLength) >= searchCriteria.MaximumVehicleLength)
+                                                if (searchCriteria.MaximumVehicleLength != null)
                                                 {
+                                                    var match = Regex.Match(siteDetailsHtml, @"(Max Vehicle Length:&nbsp;<b>)(\d+)");
+                                                    var maxVehicleLength = match.Groups[2].Value;
+
+                                                    siteMatches.Add(new SiteMatch() { Campground = campground, Title = title });
+
+                                                    // Some sites are group sites and don't have a max length.
+                                                    if (!string.IsNullOrWhiteSpace(maxVehicleLength))
+                                                    {
+                                                        // Don't send notification if length isn't long enough but add it to the list so we don't 
+                                                        // get the siteDetails again.
+                                                        if (int.Parse(maxVehicleLength) >= searchCriteria.MaximumVehicleLength)
+                                                        {
+                                                            var subject = $"{campground}-{title}.";
+                                                            var body = $"{campground}-{title}, {maximumContiguous} nights starting {searchCriteria.StartDate} with trailer length {maxVehicleLength} http://www.recreation.gov{reservationUrl}#";
+                                                            _log.Debug(body);
+
+                                                            foreach (var notification in settings.Notifications)
+                                                            {
+                                                                if (!string.IsNullOrEmpty(notification.Sms))
+                                                                {
+                                                                    SendSms(notification.Sms, body);
+                                                                }
+                                                                if (!string.IsNullOrEmpty(notification.Email))
+                                                                {
+                                                                    SendEmail(notification.Email, subject, body);
+                                                                }
+                                                            }
+                                                        }
+                                                        else
+                                                        {
+                                                            _log.Debug($"Found {maximumContiguous} nights at {campground}-{title} but trailer length was {maxVehicleLength} < {searchCriteria.MaximumVehicleLength}.");
+                                                        }
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    siteMatches.Add(new SiteMatch() { Campground = campground, Title = title });
+
                                                     var subject = $"{campground}-{title}.";
-                                                    var body = $"{campground}-{title}, {maximumContiguous} nights around {searchCriteria.StartDate} with trailer length {maxVehicleLength} http://www.recreation.gov{reservationUrl}#";
+                                                    var body = $"{campground}-{title}, {maximumContiguous} nights starting {searchCriteria.StartDate} http://www.recreation.gov{reservationUrl}#";
                                                     _log.Debug(body);
 
                                                     foreach (var notification in settings.Notifications)
@@ -223,10 +260,6 @@ namespace NationalParkScraper
                                                             SendEmail(notification.Email, subject, body);
                                                         }
                                                     }
-                                                }
-                                                else
-                                                {
-                                                    _log.Debug($"Found {maximumContiguous} nights at {campground}-{title} but trailer length was {maxVehicleLength} < {searchCriteria.MaximumVehicleLength}.");
                                                 }
                                             }
                                         }
@@ -244,7 +277,7 @@ namespace NationalParkScraper
                     _log.Error("Error occured:", ex);
                     if (html != null)
                     {
-                        _log.Debug(html);
+                        _log.Error(html);
                     }
                 }
             }
@@ -252,6 +285,7 @@ namespace NationalParkScraper
 
         public static void SendEmail(string destination, string subject, string body)
         {
+            System.Diagnostics.Debug.WriteLine(body);
             _emailsSent++;
 
             if (_emailsSent > 50)
