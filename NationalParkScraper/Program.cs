@@ -295,14 +295,14 @@ namespace NationalParkScraper
             var myMessage = new SendGridMessage();
             myMessage.AddTo(destination);
             myMessage.From = new System.Net.Mail.MailAddress(
-                                "matt@gieselman.com", "National Park");
+                                "matt@yourdomain.com", "National Park");
             myMessage.Subject = subject;
             myMessage.Text = body;
             myMessage.Html = body;
 
             var credentials = new NetworkCredential(
-                       "azure_d6c1e6279cb5cee5bb98f22fa412a2c6@azure.com",
-                       "Cobra305!"
+                       "yourcredentialid@azure.com",
+                       "yourpassword"
                        );
 
             var transportWeb = new Web(credentials);
@@ -312,8 +312,8 @@ namespace NationalParkScraper
 
         public static void SendSms(string destination, string body)
         {
-            var twilio = new TwilioRestClient("AC8e9c65518bdd0ace9950f740bececfb2", "bdca8ad3d638710ff454c92daeb821f3");
-            var msg = twilio.SendMessage("+17606213549", destination, body);
+            var twilio = new TwilioRestClient("twilioid", "twilioid");
+            var msg = twilio.SendMessage("+17605551212", destination, body);
         }
     }
 
